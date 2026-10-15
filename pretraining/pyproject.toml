@@ -5,5 +5,6 @@ description = "Implement transformer pretraining from scratch, line by line"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "cached-path>=1.8.10",
     "pytest>=9.1.1",
 ]

@@ -25,22 +25,27 @@ The transformer model:
 flowchart TD
 
 input(Input)
-subgraph "x4 repeats"
+subgraph "multiple repeats"
     embedding(Embedding)
-    add(Add)
-    subgraph "x4 repeats "
-        mlp(MLP)
-        attention(Multi-head attention)
-    end
+    mlp(MLP)
+    norm1(Normalization)
+    add1(Add)
+    attention(Multi-head attention)
+    norm2(Normalization)
+    add2(Add)
 end
 output(Output)
 
 input --> embedding
-embedding --> add
+embedding --> add1
 embedding --> mlp
-mlp --> attention
-attention --> add
-add --> output
+mlp --> norm1
+norm1 --> add1
+add1 --> add2
+add1 --> attention
+attention --> norm2
+norm2 --> add2
+add2 --> output
 ```
 
 The multi-head attention block:

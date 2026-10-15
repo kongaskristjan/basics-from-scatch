@@ -1,5 +1,7 @@
 # Pretraining transformers from scratch
 
+## Architecture
+
 ```mermaid
 flowchart TD
 main(main.py - argument parsing, calling training loop)
@@ -12,4 +14,10 @@ main --> model
 main --> training
 main --> data
 main --> generate
+```
+
+## Check before committing
+
+```bash
+uvx ty check && uvx ruff check && uv run pytest
 ```

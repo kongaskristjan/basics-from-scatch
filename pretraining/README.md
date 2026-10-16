@@ -53,14 +53,15 @@ The multi-head attention block:
 flowchart TD
 
 subgraph "n x (Multiple heads) parallel"
-input(Input embeddings)
-key(Key vector)
-query(Query vector)
-value(Value vector)
-attention(Attention scores)
-mask_attention(Causally masked attention scores)
-softmax_attention(Softmax attention scores)
-weighted_value(Weighted value vector)
+    input(Input embeddings)
+    key(Key vector)
+    query(Query vector)
+    value(Value vector)
+    attention(Attention scores)
+    norm_attention(Normalized Attention scores)
+    mask_attention(Causally masked attention scores)
+    softmax_attention(Softmax attention scores)
+    weighted_value(Weighted value vector)
 end
 output(Output)
 
@@ -69,7 +70,8 @@ input --> query
 input --> value
 key --> attention
 query --> attention
-attention --> mask_attention
+attention --> norm_attention
+norm_attention --> mask_attention
 mask_attention --> softmax_attention
 softmax_attention --> weighted_value
 value --> weighted_value

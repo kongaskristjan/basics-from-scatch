@@ -1,5 +1,6 @@
 import random
 
+import torch
 from cached_path import cached_path
 from torch.utils.data import Dataset
 
@@ -24,13 +25,24 @@ class JokesDataset(Dataset):
             padded = trun + (str_length - len(trun)) * "\0"
             self.jokes[i] = padded
 
-    def __getitem__(self, index: int) -> tuple[str, str]:
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         inp = self.jokes[index]
+        inp_tok = self.tokenize(inp)
         target = inp[1:] + "\0"
-        return inp, target
+        target_tok = self.tokenize(target)
+        return inp_tok, target_tok
 
     def __len__(self) -> int:
         return len(self.jokes)
+
+    def tokenize(self, string: str) -> torch.Tensor:
+        tokens = []
+        for chr in string:
+            value = ord(chr)
+            value = min(value, 255)
+            tokens.append(value)
+        tokens_t = torch.LongTensor(tokens)
+        return tokens_t
 
 
 def get_jokes() -> list[str]:

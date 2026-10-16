@@ -1,7 +1,5 @@
 # ty: ignore[invalid-mutable-override]
 
-import math
-
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -20,7 +18,7 @@ class Transformer(nn.Module):
         self.in_embedding = nn.Embedding(dict_size, channels)
         self.mlps: list[MLP] = []
         self.attns: list[MultiHeadAttention] = []
-        self.norm = RMSNorm()
+        self.norm = nn.RMSNorm([channels,])
         for i in range(num_blocks):
             self.mlps.append(MLP(channels))
             self.attns.append(MultiHeadAttention(heads, channels))
@@ -65,20 +63,57 @@ class MultiHeadAttention(nn.Module):
         self.w_value = nn.Linear(channels, channels)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        batch_size, sequence_length, channels = x.shape
+        # Constants
+        dtype = x.dtype
+        device = x.device
+
+        batch_size, seq_len, channels = x.shape
         assert channels % self.heads == 0
-        seq_batch, heads, attn_channels = batch_size * sequence_length, self.heads, channels // self.heads
+        batch_seq, heads, attn_channels = batch_size * seq_len, self.heads, channels // self.heads
 
-        x = x.view(seq_batch, channels)
-        key = self.w_key(x).view(seq_batch * heads, attn_channels)
-        query = self.w_query(x).view(seq_batch * heads, attn_channels)
-        value = self.w_value(x).view(seq_batch * heads, attn_channels)
-        attention = torch.inner(key, query) / math.sqrt(attn_channels)
-        
+        # Causal mask
+        # attn_mask will be zeros for [?, 0, 0..seq_len]
+        # thus dimensions: [B, input, output]
+        attn_mask = torch.full((seq_len, seq_len), float("-inf"), dtype=dtype, device=device)
+        attn_mask = torch.triu(attn_mask)
+        attn_mask = attn_mask.view(1, seq_len, seq_len)
 
+        x = x.view(batch_seq, channels)
 
+        # Key and query vectors
+        key = self.w_key(x)
+        key = key.view(batch_size, seq_len, heads, attn_channels)
+        key = key.permute(0, 2, 1, 3)
+        assert key.shape == (batch_size, heads, seq_len, attn_channels)
+        key = key.view(batch_size * heads, seq_len, attn_channels)
 
+        query = self.w_query(x)
+        query = query.view(batch_size, seq_len, heads, attn_channels)
+        query = query.permute(0, 2, 3, 1)
+        assert key.shape == (batch_size, heads, attn_channels, seq_len)
+        query = query.view(batch_size * heads, attn_channels, seq_len)
 
+        # Attention
+        scores = torch.bmm(key, query)
+        assert scores.shape == (batch_size * heads, seq_len, seq_len)
+        causal_scores = scores + attn_mask
+        attn = torch.softmax(causal_scores, dim=1)
+        attn = attn.view(batch_size * heads, seq_len, seq_len)  # BHIO
+        attn = attn.permute(0, 2, 1)  # (BH)OI
+        assert attn.shape == (batch_size * heads, seq_len, seq_len)
 
-class RMSNorm(nn.Module):
-    pass
+        # Value vector
+        value = self.w_value(x)
+        value = value.view(batch_size, seq_len, heads, attn_channels)  # BIHC
+        value = value.permute(0, 2, 1, 3)  # BHIC
+        assert attn.shape == (batch_size, heads, seq_len, attn_channels)
+        value.view(batch_size * heads, seq_len, attn_channels)  # (BH)IC
+
+        # Attn result
+        result = torch.bmm(attn, value)
+        assert result.shape == (batch_size * heads, seq_len, attn_channels)
+        result = result.view(batch_size, heads, seq_len, attn_channels)
+        result = result.permute(0, 2, 1, 3)  # BOHC
+        result = result.view(batch_size, seq_len, channels)
+
+        return result

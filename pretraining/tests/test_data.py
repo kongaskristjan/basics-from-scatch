@@ -5,6 +5,7 @@ def test_get_jokes():
     jokes = get_jokes()
     assert len(jokes) > 0 and len(jokes[0]) > 0
 
+
 def test_dataset():
     # Test dataset size properties
     len1 = 16
@@ -32,3 +33,10 @@ def test_dataset():
     sample = train[1]
     assert len(sample[0]) == len(sample[1]) == len2
 
+
+def test_dataset_characters():
+    train, _val = JokesDataset.create_train_and_val(10, full=False)
+    inp, target = train.get_strings(0)
+    assert inp[0] == "\0"
+    assert target[0] != "\0" and target[-1] == "\1"
+    assert inp[1:] == target[:-1]

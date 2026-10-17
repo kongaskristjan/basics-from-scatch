@@ -26,19 +26,23 @@ class JokesDataset(Dataset):
         super().__init__()
         self.jokes = jokes
         for i, s in enumerate(self.jokes):
-            trun = s[:str_length]
-            padded = trun + (str_length - len(trun)) * "\0"
+            trun = "\0" + s[:str_length - 1]
+            padded = trun + (str_length - len(trun)) * "\1"
             self.jokes[i] = padded
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
-        inp = self.jokes[index]
+        inp, target = self.get_strings(index)
         inp_tok = tokenize(inp)
-        target = inp[1:] + "\0"
         target_tok = tokenize(target)
         return inp_tok, target_tok
 
     def __len__(self) -> int:
         return len(self.jokes)
+
+    def get_strings(self, index: int) -> tuple[str, str]:
+        inp = self.jokes[index]
+        target = inp[1:] + "\1"
+        return inp, target
 
 
 def tokenize(string: str) -> torch.Tensor:

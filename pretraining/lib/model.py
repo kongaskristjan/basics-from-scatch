@@ -11,7 +11,7 @@ class Transformer(nn.Module):
         num_blocks: int,
         heads: int,
         channels: int,
-        dict_size: int,
+        dict_size: int = 256,
     ):
         super().__init__()
         assert channels % heads == 0

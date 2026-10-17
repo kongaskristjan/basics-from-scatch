@@ -46,7 +46,6 @@ def train_or_val_single_epoch(
             loss_value = torch.mean(loss(out, target))
             if optim is not None:
                 loss_value.backward()
-                print(loss_value.to("cpu").item())
                 optim.step()
 
             acc_value = torch.mean(torch.argmax(out, dim=1) == target, dtype=torch.float32)

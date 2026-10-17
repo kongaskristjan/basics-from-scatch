@@ -17,8 +17,8 @@ class Transformer(nn.Module):
         assert channels % heads == 0
 
         self.in_embedding = nn.Embedding(dict_size, channels)
-        self.mlps: list[MLP] = []
-        self.attns: list[MultiHeadAttention] = []
+        self.mlps = nn.ModuleList()
+        self.attns = nn.ModuleList()
         self.norm = nn.RMSNorm([channels,])
         for i in range(num_blocks):
             self.mlps.append(MLP(channels))

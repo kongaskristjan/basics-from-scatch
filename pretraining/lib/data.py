@@ -2,7 +2,7 @@ import random
 
 import torch
 from cached_path import cached_path
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 
 
 class JokesDataset(Dataset):
@@ -45,6 +45,20 @@ class JokesDataset(Dataset):
         return inp, target
 
 
+def get_jokes_data_loaders(
+    str_length: int = 128,
+    val_pct: float = 0.2,
+    seed: int = 42,
+    full: bool = True,
+    batch_size: int = 32,
+    num_workers: int = 4
+) -> tuple[DataLoader, DataLoader]:
+    train_ds, val_ds = JokesDataset.create_train_and_val(str_length=str_length, val_pct=val_pct, seed=seed, full=full)
+    train_dl = DataLoader(train_ds, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+    val_dl = DataLoader(val_ds, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+    return train_dl, val_dl
+
+
 def tokenize(string: str) -> torch.Tensor:
     tokens = []
     for chr in string:
@@ -71,6 +85,6 @@ def get_jokes(full: bool = True) -> list[str]:
         if full:
             jokes_string = f.read()
         else:
-            jokes_string = f.read(5000)
+            jokes_string = f.read(1000)
     jokes = jokes_string.split("\n")
     return jokes

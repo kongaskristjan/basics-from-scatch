@@ -2,3 +2,6 @@
 __pycache__/
 checkpoints/
 .vscode/
+.venv/
+.ruff_cache/
+.pytest_cache/

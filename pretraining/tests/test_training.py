@@ -12,7 +12,7 @@ def test_fit_single_sequence(fix_seeds):  # noqa: F811
     model = LinearPerToken(256, 4)
     optim = torch.optim.AdamW(model.parameters())
     train_dl, val_dl = get_jokes_data_loaders(str_length=16, batch_size=16, num_workers=0)
-    train_losses, val_losses = train(model, optim, train_dl, val_dl, epochs=200, single_batch=True)
+    train_losses, val_losses, _seqs = train(model, optim, train_dl, val_dl, epochs=200, single_batch=True)
 
     assert train_losses[-1] < train_losses[0] - 0.5
     assert val_losses[-1] < val_losses[0] - 0.5

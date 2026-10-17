@@ -20,26 +20,28 @@ def train(
     device: str = "cpu",
     single_batch: bool = False,
     save_path: Path | None = None
-) -> tuple[list[float], list[float]]:
+) -> tuple[list[float], list[float], list[str]]:
     train_losses: list[float] = []
     val_losses: list[float] = []
 
     if not single_batch:
         generate(model, seq_len=128, batch_size=4, device=device, print_seqs=True)
 
+    seqs: list[str] = []
     for e in range(epochs):
         print(f"Epoch {e + 1}/{epochs}")
         train_losses.append(train_or_val_single_epoch(model, train_dl, optim=optim, device=device, single_batch=single_batch))
         val_losses.append(train_or_val_single_epoch(model, val_dl, device=device, single_batch=single_batch))
 
         if not single_batch:
-            generate(model, seq_len=128, batch_size=4, device=device, print_seqs=True)
+            batch_seqs = generate(model, seq_len=128, batch_size=4, device=device, print_seqs=True)
+            seqs.append(batch_seqs[0])
 
         if save_path is not None:
             os.makedirs(save_path, exist_ok=True)
             torch.save(model.state_dict(), save_path/f"checkpoint_{e+1:02}.pth")
 
-    return train_losses, val_losses
+    return train_losses, val_losses, seqs
 
 
 def train_or_val_single_epoch(

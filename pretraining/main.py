@@ -12,7 +12,13 @@ def main() -> None:
     train_dl, val_dl = get_jokes_data_loaders(str_length=64, num_workers=0)
     model = Transformer(num_blocks=4, heads=4, channels=64).to(device)
     optim = torch.optim.AdamW(model.parameters())
-    _train_losses, _val_losses = train(model, optim, train_dl, val_dl, epochs=50, device=device, save_path=Path("models/"))
+    _train_losses, _val_losses, seqs = train(model, optim, train_dl, val_dl, epochs=50, device=device, save_path=Path("models/"))
+    save_seqs(seqs, Path("models")/"seqs.txt")
+
+
+def save_seqs(seqs: list[str], output_path: Path) -> None:
+    with open(output_path, "w") as f:
+        f.writelines(seqs)
 
 
 if __name__ == "__main__":

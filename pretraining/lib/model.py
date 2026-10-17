@@ -68,36 +68,37 @@ class MultiHeadAttention(nn.Module):
         dtype = x.dtype
         device = x.device
 
-        batch_size, seq_len, channels = x.shape
+        batch_size, seq_len, channels = x.shape  # BI(HC)
         assert channels % self.heads == 0
-        batch_seq, heads, attn_channels = batch_size * seq_len, self.heads, channels // self.heads
+        heads, attn_channels = self.heads, channels // self.heads
 
         # Causal mask
         # attn_mask will be zeros for [?, 0, 0..seq_len]
         # thus dimensions: [B, input, output]
         attn_mask = torch.full((seq_len, seq_len), float("-inf"), dtype=dtype, device=device)
-        attn_mask = torch.triu(attn_mask)
-        attn_mask = attn_mask.view(1, seq_len, seq_len)
+        attn_mask = torch.triu(attn_mask, diagonal = 1)
+        attn_mask = attn_mask.view(1, seq_len, seq_len)  # 1OI
+        attn_mask = attn_mask.permute(0, 2, 1)  # 1IO
 
-        x = x.view(batch_seq, channels)
+        x = x.view(batch_size * seq_len, channels)  # (BI)(HC)
 
         # Key and query vectors
         key = self.w_key(x)
-        key = key.view(batch_size, seq_len, heads, attn_channels)
-        key = key.permute(0, 2, 1, 3)
+        key = key.view(batch_size, seq_len, heads, attn_channels)  # BIHC
+        key = key.permute(0, 2, 1, 3)  # BHIC
         assert key.shape == (batch_size, heads, seq_len, attn_channels)
-        key = key.view(batch_size * heads, seq_len, attn_channels)
+        key = key.reshape(batch_size * heads, seq_len, attn_channels)  # (BH)IC
 
-        query = self.w_query(x)
-        query = query.view(batch_size, seq_len, heads, attn_channels)
-        query = query.permute(0, 2, 3, 1)
-        assert key.shape == (batch_size, heads, attn_channels, seq_len)
-        query = query.view(batch_size * heads, attn_channels, seq_len)
+        query = self.w_query(x)  # (BO)(HC)
+        query = query.view(batch_size, seq_len, heads, attn_channels)  # BOHC
+        query = query.permute(0, 2, 3, 1)  # BHCO
+        assert query.shape == (batch_size, heads, attn_channels, seq_len)
+        query = query.reshape(batch_size * heads, attn_channels, seq_len)  # (BH)CO
 
         # Attention
-        scores = torch.bmm(key, query)
+        scores = torch.bmm(key, query)  # (BH)IO
         assert scores.shape == (batch_size * heads, seq_len, seq_len)
-        causal_scores = scores + attn_mask
+        causal_scores = scores + attn_mask  # (BH)IO
         attn = torch.softmax(causal_scores, dim=1)
         attn = attn.view(batch_size * heads, seq_len, seq_len)  # BHIO
         attn = attn.permute(0, 2, 1)  # (BH)OI
@@ -107,14 +108,14 @@ class MultiHeadAttention(nn.Module):
         value = self.w_value(x)
         value = value.view(batch_size, seq_len, heads, attn_channels)  # BIHC
         value = value.permute(0, 2, 1, 3)  # BHIC
-        assert attn.shape == (batch_size, heads, seq_len, attn_channels)
-        value.view(batch_size * heads, seq_len, attn_channels)  # (BH)IC
+        assert value.shape == (batch_size, heads, seq_len, attn_channels)
+        value = value.reshape(batch_size * heads, seq_len, attn_channels)  # (BH)IC
 
         # Attn result
-        result = torch.bmm(attn, value)
+        result = torch.bmm(attn, value)  # (BH)OC
         assert result.shape == (batch_size * heads, seq_len, attn_channels)
-        result = result.view(batch_size, heads, seq_len, attn_channels)
+        result = result.view(batch_size, heads, seq_len, attn_channels)  # BHOC
         result = result.permute(0, 2, 1, 3)  # BOHC
-        result = result.view(batch_size, seq_len, channels)
+        result = result.reshape(batch_size, seq_len, channels)  # BO(HC)
 
         return result

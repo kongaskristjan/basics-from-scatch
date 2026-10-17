@@ -1,9 +1,14 @@
+import os
+from pathlib import Path
 from statistics import mean
 
 import torch
 from torch import nn
+from torch.nn import functional as F
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
+
+from lib.data import batch_tokenize
 
 
 def train(
@@ -14,13 +19,26 @@ def train(
     epochs: int,
     device: str = "cpu",
     single_batch: bool = False,
+    save_path: Path | None = None
 ) -> tuple[list[float], list[float]]:
     train_losses: list[float] = []
     val_losses: list[float] = []
+
+    if not single_batch:
+        generate(model, seq_len=128, batch_size=4, device=device, print_seqs=True)
+
     for e in range(epochs):
         print(f"Epoch {e + 1}/{epochs}")
         train_losses.append(train_or_val_single_epoch(model, train_dl, optim=optim, device=device, single_batch=single_batch))
         val_losses.append(train_or_val_single_epoch(model, val_dl, device=device, single_batch=single_batch))
+
+        if not single_batch:
+            generate(model, seq_len=128, batch_size=4, device=device, print_seqs=True)
+
+        if save_path is not None:
+            os.makedirs(save_path, exist_ok=True)
+            torch.save(model.state_dict(), save_path/f"checkpoint_{e+1:02}.pth")
+
     return train_losses, val_losses
 
 
@@ -55,5 +73,26 @@ def train_or_val_single_epoch(
             if single_batch:
                 break
 
-    print(f"  {'val  ' if optim is None else 'train'}: acc={100 * mean(accs):.1f}%, loss={mean(losses):.1f}")
+    print(f"  {'val  ' if optim is None else 'train'}: acc={100 * mean(accs):.1f}%, loss={mean(losses):.2f}")
     return mean(losses)
+
+
+def generate(model: nn.Module, seq_len: int, batch_size: int, device: str = "cpu", strip: bool = True, print_seqs: bool = False) -> list[str]:
+    seqs = ["\0" for _ in range(batch_size)]
+    for s in range(seq_len - 1):
+        padded_seqs = [seq + "\1" * (seq_len - len(seq)) for seq in seqs]
+        tokenized = batch_tokenize(padded_seqs).to(device)
+        out = model(tokenized)  # BSC
+        out = F.softmax(out, dim=2)  # BSC
+        out = out.view(batch_size * len(padded_seqs[0]), -1)  # (BS)C
+        indices = torch.multinomial(out, 1)  # (BS)1
+        indices = indices.view(batch_size, len(padded_seqs[0])).to("cpu")  # BS
+        next_idxs = [indices[b][s] for b in range(batch_size)]
+        seqs = [seq + chr(idx) for seq, idx in zip(seqs, next_idxs, strict=True)]
+
+    if strip:
+        seqs = [s.strip("\0").strip("\1") for s in seqs]
+    if print_seqs:
+        for s in seqs:
+            print(repr(s))
+    return seqs

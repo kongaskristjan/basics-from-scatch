@@ -39,7 +39,11 @@ def train(
 
         if save_path is not None:
             os.makedirs(save_path, exist_ok=True)
-            torch.save(model.state_dict(), save_path/f"checkpoint_{e+1:02}.pth")
+            torch.save(model.state_dict(), save_path/f"checkpoint.pth")
+
+    if save_path is not None:
+        os.makedirs(save_path, exist_ok=True)
+        torch.save(model.state_dict(), save_path/f"full_training.pth")
 
     return train_losses, val_losses, seqs
 
@@ -59,11 +63,14 @@ def train_or_val_single_epoch(
             if optim is not None:
                 optim.zero_grad()
 
-            inp = inp.to(device)
-            target = target.to(device)
-            out = model(inp)  # BSC
-            out = out.permute(0, 2, 1)  # BCS (cross entropy loss requires C to be at dim=1)
-            loss_value = torch.mean(loss(out, target))
+            # Forward
+            inp, target = inp.to(device), target.to(device)
+            with torch.autocast(dtype=torch.bfloat16, device_type="cuda"):
+                out = model(inp)  # BSC
+                out = out.permute(0, 2, 1)  # BCS (cross entropy loss requires C to be at dim=1)
+                loss_value = torch.mean(loss(out, target))
+
+            # Backward
             if optim is not None:
                 loss_value.backward()
                 optim.step()
@@ -75,7 +82,7 @@ def train_or_val_single_epoch(
             if single_batch:
                 break
 
-    print(f"  {'val  ' if optim is None else 'train'}: acc={100 * mean(accs):.1f}%, loss={mean(losses):.2f}")
+    print(f"  {'val  ' if optim is None else 'train'}: acc={100 * mean(accs):.2f}%, loss={mean(losses):.3f}")
     return mean(losses)
 
 
@@ -84,9 +91,10 @@ def generate(model: nn.Module, seq_len: int, batch_size: int, device: str = "cpu
     for s in range(seq_len - 1):
         padded_seqs = [seq + "\1" * (seq_len - len(seq)) for seq in seqs]
         tokenized = batch_tokenize(padded_seqs).to(device)
-        out = model(tokenized)  # BSC
-        out = F.softmax(out, dim=2)  # BSC
-        out = out.view(batch_size * len(padded_seqs[0]), -1)  # (BS)C
+        with torch.autocast(dtype=torch.bfloat16, device_type="cuda"):
+            out = model(tokenized)  # BSC
+            out = F.softmax(out, dim=2)  # BSC
+            out = out.view(batch_size * len(padded_seqs[0]), -1)  # (BS)C
         indices = torch.multinomial(out, 1)  # (BS)1
         indices = indices.view(batch_size, len(padded_seqs[0])).to("cpu")  # BS
         next_idxs = [indices[b][s] for b in range(batch_size)]

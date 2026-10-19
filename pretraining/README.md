@@ -78,6 +78,12 @@ weighted_value --> output
 
 ## Running
 
+Sync deps:
+
+```bash
+uv sync
+```
+
 Run the code:
 
 ```bash

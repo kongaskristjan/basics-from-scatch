@@ -21,12 +21,12 @@ def test_fit_single_sequence(fix_seeds):  # noqa: F811
 def test_generate():
     model = LinearPerToken(256, 4)
 
-    seqs = generate(model, 128, 2, strip=False)
+    seqs = generate(model, 128, 2, strip=False, device="cpu", dtype=torch.float32)
     assert len(seqs) == 2
     assert len(seqs[0]) == len(seqs[1]) == 128
     assert seqs[0][0] == seqs[1][0] == "\0"
 
-    seqs = generate(model, 128, 2, strip=False, prefix="Hello.")
+    seqs = generate(model, 128, 2, strip=False, prefix="Hello.", device="cpu", dtype=torch.float32)
     assert len(seqs[0]) == len(seqs[1]) == 128
 
 

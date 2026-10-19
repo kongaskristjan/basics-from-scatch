@@ -12,7 +12,9 @@ def main() -> None:
     default_device = "cpu"
     if torch.cuda.is_available(): default_device = "cuda"
     if torch.mps.is_available(): default_device = "mps"
-    default_dtype = "bfloat16" if torch.cuda.is_bf16_supported() else "float32"
+    default_dtype = "float32"
+    if torch.cuda.is_bf16_supported() or default_device == "mps":
+        default_dtype = "bfloat16"
 
     # create the top-level parser
     parser = argparse.ArgumentParser()
@@ -51,13 +53,12 @@ def generate_command(
     device: str,
     dtype: torch.dtype,
     checkpoint_path: Path,
-
 ):
     model = get_model().to(device)
     model.load_state_dict(torch.load(checkpoint_path, weights_only=True))
     model.eval()
     prefix = input("Enter completion prefix: ")
-    generate(model, seq_len=256, batch_size=4, prefix=prefix, device=device, print_seqs=True)
+    generate(model, seq_len=256, batch_size=4, prefix=prefix, device=device, dtype=dtype, print_seqs=True)
 
 
 def get_model() -> Transformer:

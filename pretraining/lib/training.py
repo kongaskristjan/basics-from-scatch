@@ -26,16 +26,16 @@ def train(
     val_losses: list[float] = []
 
     if not single_batch:
-        generate(model, seq_len=128, batch_size=4, device=device, print_seqs=True)
+        generate(model, seq_len=128, batch_size=4, device=device, dtype=dtype, print_seqs=True)
 
     seqs: list[str] = []
     for e in range(epochs):
         print(f"Epoch {e + 1}/{epochs}")
-        train_losses.append(train_or_val_single_epoch(model, train_dl, optim=optim, device=device, single_batch=single_batch))
-        val_losses.append(train_or_val_single_epoch(model, val_dl, device=device, single_batch=single_batch))
+        train_losses.append(train_or_val_single_epoch(model, train_dl, optim=optim, device=device, dtype=dtype, single_batch=single_batch))
+        val_losses.append(train_or_val_single_epoch(model, val_dl, device=device, dtype=dtype, single_batch=single_batch))
 
         if not single_batch:
-            batch_seqs = generate(model, seq_len=128, batch_size=4, device=device, print_seqs=True)
+            batch_seqs = generate(model, seq_len=128, batch_size=4, device=device, dtype=dtype, print_seqs=True)
             seqs.append(batch_seqs[0])
 
         if save_path is not None:
@@ -55,8 +55,9 @@ def train(
 def train_or_val_single_epoch(
     model: nn.Module,
     dl: DataLoader,
+    device: str,
+    dtype: torch.dtype,
     optim: Optimizer | None = None,
-    device: str = "cpu",
     single_batch: bool = False,
 ) -> float:
     accs: list[float] = []
@@ -69,7 +70,7 @@ def train_or_val_single_epoch(
 
             # Forward
             inp, target = inp.to(device), target.to(device)
-            with torch.autocast(dtype=torch.bfloat16, device_type="cuda"):
+            with torch.autocast(dtype=dtype, device_type=device):
                 out = model(inp)  # BSC
                 out = out.permute(0, 2, 1)  # BCS (cross entropy loss requires C to be at dim=1)
                 loss_value = torch.mean(loss(out, target))
@@ -94,8 +95,9 @@ def generate(
     model: nn.Module,
     seq_len: int,
     batch_size: int,
+    device,
+    dtype,
     prefix="",
-    device: str = "cpu",
     strip: bool = True,
     print_seqs: bool = False
 ) -> list[str]:
@@ -103,7 +105,7 @@ def generate(
     for s in range(len(prefix), seq_len - 1):
         padded_seqs = [seq + "\1" * (seq_len - len(seq)) for seq in seqs]
         tokenized = batch_tokenize(padded_seqs).to(device)
-        with torch.autocast(dtype=torch.bfloat16, device_type="cuda"):
+        with torch.autocast(dtype=dtype, device_type=device):
             out = model(tokenized)  # BSC
             out = F.softmax(out, dim=2)  # BSC
             out = out.view(batch_size * len(padded_seqs[0]), -1)  # (BS)C

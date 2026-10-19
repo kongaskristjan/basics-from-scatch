@@ -20,10 +20,14 @@ def test_fit_single_sequence(fix_seeds):  # noqa: F811
 
 def test_generate():
     model = LinearPerToken(256, 4)
+
     seqs = generate(model, 128, 2, strip=False)
     assert len(seqs) == 2
-    assert len(seqs[0]) == 128 and len(seqs[1]) == 128
+    assert len(seqs[0]) == len(seqs[1]) == 128
     assert seqs[0][0] == seqs[1][0] == "\0"
+
+    seqs = generate(model, 128, 2, strip=False, prefix="Hello.")
+    assert len(seqs[0]) == len(seqs[1]) == 128
 
 
 class LinearPerToken(nn.Module):

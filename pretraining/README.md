@@ -9,14 +9,12 @@ flowchart TD
 
 main(main.py - argument parsing, calling training loop)
 model(lib/model.py - the transformer model)
-training(lib/training.py - the pretraining loop)
+training(lib/training.py - the pretraining loop and inference)
 data(lib/data.py - download pretraining datasets, create input/output pairs, tokenize)
-generate(lib/generate.py - generate new text)
 
 main --> model
 main --> training
 main --> data
-main --> generate
 ```
 
 The transformer model:

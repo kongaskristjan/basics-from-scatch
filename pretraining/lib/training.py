@@ -18,6 +18,7 @@ def train(
     val_dl: DataLoader,
     epochs: int,
     device: str = "cpu",
+    dtype: torch.dtype = torch.float32,
     single_batch: bool = False,
     save_path: Path | None = None
 ) -> tuple[list[float], list[float], list[str]]:
@@ -39,11 +40,14 @@ def train(
 
         if save_path is not None:
             os.makedirs(save_path, exist_ok=True)
-            torch.save(model.state_dict(), save_path/f"checkpoint.pth")
+            torch.save(model.state_dict(), save_path/"checkpoint.pth")
+            if val_losses[-1] == min(val_losses):
+                torch.save(model.state_dict(), save_path/"best.pth")
+
 
     if save_path is not None:
         os.makedirs(save_path, exist_ok=True)
-        torch.save(model.state_dict(), save_path/f"full_training.pth")
+        torch.save(model.state_dict(), save_path/"full_training.pth")
 
     return train_losses, val_losses, seqs
 
@@ -86,9 +90,17 @@ def train_or_val_single_epoch(
     return mean(losses)
 
 
-def generate(model: nn.Module, seq_len: int, batch_size: int, device: str = "cpu", strip: bool = True, print_seqs: bool = False) -> list[str]:
-    seqs = ["\0" for _ in range(batch_size)]
-    for s in range(seq_len - 1):
+def generate(
+    model: nn.Module,
+    seq_len: int,
+    batch_size: int,
+    prefix="",
+    device: str = "cpu",
+    strip: bool = True,
+    print_seqs: bool = False
+) -> list[str]:
+    seqs = ["\0" + prefix for _ in range(batch_size)]
+    for s in range(len(prefix), seq_len - 1):
         padded_seqs = [seq + "\1" * (seq_len - len(seq)) for seq in seqs]
         tokenized = batch_tokenize(padded_seqs).to(device)
         with torch.autocast(dtype=torch.bfloat16, device_type="cuda"):
